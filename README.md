@@ -6,7 +6,10 @@ A modern, multilingual web application for managing your personal home library. 
 ![PHP](https://img.shields.io/badge/PHP-8.3-777BB4?logo=php&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-
+[![GitHub stars](https://img.shields.io/github/stars/XKlibure/home-library?style=social)](https://github.com/XKlibure/home-library)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)                                                                      
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](docker-compose.yml)  
+[![SonarCloud](https://sonarcloud.io/api/project_badges/measure?project=bookoholik&metric=alert_status)](https://sonarcloud.io/dashboard?id=bookoholik)
 ---
 
 ## ✨ Features
