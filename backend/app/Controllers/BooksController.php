@@ -224,7 +224,7 @@ class BooksController extends BaseController
             'language' => $language,
             'location_room' => $this->sanitize($data['location_room'] ?? ''),
             'location_shelf' => $this->sanitize($data['location_shelf'] ?? ''),
-            'read_status' => (bool)($data['read_status'] ?? false),
+            'read_status' => filter_var($data['read_status'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 't' : 'f',
             'isbn' => $this->sanitize($data['isbn'] ?? ''),
             'edition_house' => $this->sanitize($data['edition_house'] ?? ''),
             'num_pages' => !empty($data['num_pages']) ? (int)$data['num_pages'] : null,
@@ -276,7 +276,7 @@ class BooksController extends BaseController
                 if (in_array($field, ['publication_year', 'num_pages', 'series_position'])) {
                     $bindings[$field] = !empty($data[$field]) ? (int)$data[$field] : null;
                 } elseif ($field === 'read_status') {
-                    $bindings[$field] = (bool)$data[$field];
+                    $bindings[$field] = filter_var($data[$field], FILTER_VALIDATE_BOOLEAN) ? 't' : 'f';
                 } else {
                     $bindings[$field] = is_string($data[$field]) ? $this->sanitize($data[$field]) : $data[$field];
                 }

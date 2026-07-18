@@ -7,13 +7,15 @@
           <div class="flex items-center">
             <router-link to="/" class="flex items-center space-x-2 rtl:space-x-reverse">
               <img src="/logo.png" alt="Bookoholik" class="h-9 w-9 object-contain" />
-              <span class="text-xl font-bold text-primary-700">{{ t('app_name') }}</span>
+              <span class="text-xl font-bold text-primary-700 hidden sm:inline">{{ t('app_name') }}</span>
             </router-link>
             
-            <div class="hidden md:flex ltr:ml-10 rtl:mr-10 space-x-4 rtl:space-x-reverse">
+            <div class="hidden lg:flex ltr:ml-10 rtl:mr-10 space-x-4 rtl:space-x-reverse">
               <router-link to="/books" class="nav-link">{{ t('nav.books') }}</router-link>
               <router-link to="/writers" class="nav-link">{{ t('nav.writers') }}</router-link>
               <router-link to="/genres" class="nav-link">{{ t('nav.genres') }}</router-link>
+              <router-link to="/publishers" class="nav-link">{{ t('nav.publishers') }}</router-link>
+              <router-link to="/locations" class="nav-link">{{ t('nav.locations') }}</router-link>
               <router-link to="/lending" class="nav-link">{{ t('nav.lending') }}</router-link>
               <router-link to="/reports" class="nav-link">{{ t('nav.reports') }}</router-link>
               <router-link v-if="isAdmin" to="/users" class="nav-link">{{ t('nav.users') }}</router-link>
@@ -21,32 +23,44 @@
             </div>
           </div>
           
-          <div class="flex items-center space-x-4 rtl:space-x-reverse">
+          <div class="flex items-center space-x-3 rtl:space-x-reverse">
             <!-- Language Switcher -->
             <select v-model="currentLocale" @change="switchLanguage" 
-                    class="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
-              <option value="en">🇬🇧 English</option>
-              <option value="ar">🇸🇦 العربية</option>
-              <option value="fr">🇫🇷 Français</option>
+                    class="text-xs border border-gray-300 rounded-md px-1.5 py-1 bg-white focus:ring-2 focus:ring-primary-500 outline-none">
+              <option value="en">🇬🇧 EN</option>
+              <option value="ar">🇸🇦 ع</option>
+              <option value="fr">🇫🇷 FR</option>
             </select>
-            <router-link to="/settings" class="text-sm text-gray-600 hover:text-primary-700">
+            <router-link to="/settings" class="text-sm text-gray-600 hover:text-primary-700 hidden sm:inline">
               ⚙️ {{ user?.full_name }}
             </router-link>
-            <button @click="logout" class="text-sm text-red-600 hover:text-red-800">{{ t('logout') }}</button>
+            <button @click="logout" class="text-sm text-red-600 hover:text-red-800 hidden sm:inline">{{ t('logout') }}</button>
+            <!-- Mobile hamburger -->
+            <button @click="mobileMenuOpen = !mobileMenuOpen" class="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Mobile menu -->
-      <div class="md:hidden border-t border-gray-200 px-4 py-2 space-y-1">
-        <router-link to="/books" class="block nav-link">{{ t('nav.books') }}</router-link>
-        <router-link to="/writers" class="block nav-link">{{ t('nav.writers') }}</router-link>
-        <router-link to="/genres" class="block nav-link">{{ t('nav.genres') }}</router-link>
-        <router-link to="/lending" class="block nav-link">{{ t('nav.lending') }}</router-link>
-        <router-link to="/reports" class="block nav-link">{{ t('nav.reports') }}</router-link>
-        <router-link v-if="isAdmin" to="/users" class="block nav-link">{{ t('nav.users') }}</router-link>
-        <router-link v-if="isAdmin" to="/backup" class="block nav-link">{{ t('nav.backup') }}</router-link>
-        <router-link to="/settings" class="block nav-link">⚙️ {{ t('nav.settings') }}</router-link>
+      <!-- Mobile menu (toggled) -->
+      <div v-if="mobileMenuOpen" class="lg:hidden border-t border-gray-200 px-4 py-3 space-y-1 bg-white shadow-lg">
+        <router-link to="/books" class="block nav-link" @click="mobileMenuOpen = false">📚 {{ t('nav.books') }}</router-link>
+        <router-link to="/writers" class="block nav-link" @click="mobileMenuOpen = false">✍️ {{ t('nav.writers') }}</router-link>
+        <router-link to="/genres" class="block nav-link" @click="mobileMenuOpen = false">📖 {{ t('nav.genres') }}</router-link>
+        <router-link to="/publishers" class="block nav-link" @click="mobileMenuOpen = false">🏢 {{ t('nav.publishers') }}</router-link>
+        <router-link to="/locations" class="block nav-link" @click="mobileMenuOpen = false">📍 {{ t('nav.locations') }}</router-link>
+        <router-link to="/lending" class="block nav-link" @click="mobileMenuOpen = false">🤝 {{ t('nav.lending') }}</router-link>
+        <router-link to="/reports" class="block nav-link" @click="mobileMenuOpen = false">📊 {{ t('nav.reports') }}</router-link>
+        <router-link v-if="isAdmin" to="/users" class="block nav-link" @click="mobileMenuOpen = false">👥 {{ t('nav.users') }}</router-link>
+        <router-link v-if="isAdmin" to="/backup" class="block nav-link" @click="mobileMenuOpen = false">💾 {{ t('nav.backup') }}</router-link>
+        <div class="border-t border-gray-100 pt-2 mt-2">
+          <router-link to="/settings" class="block nav-link" @click="mobileMenuOpen = false">⚙️ {{ t('nav.settings') }}</router-link>
+          <button @click="logout" class="block w-full text-left nav-link text-red-600">🚪 {{ t('logout') }}</button>
+        </div>
       </div>
     </nav>
 
@@ -83,6 +97,7 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 
 const currentLocale = ref(localStorage.getItem('app_locale') || 'en')
+const mobileMenuOpen = ref(false)
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const user = computed(() => authStore.user)
 const isAdmin = computed(() => authStore.user?.role === 'admin')
@@ -93,6 +108,7 @@ function switchLanguage() {
 }
 
 function logout() {
+  mobileMenuOpen.value = false
   authStore.logout()
   router.push('/login')
 }

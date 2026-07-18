@@ -3,9 +3,14 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <h1 class="text-2xl font-bold text-gray-900">📚 {{ t('books.title') }}</h1>
-      <router-link to="/books/add" class="btn-primary inline-flex items-center">
-        <span class="ltr:mr-2 rtl:ml-2">➕</span> {{ t('books.add_book') }}
-      </router-link>
+      <div class="flex gap-2">
+        <router-link v-if="canScan" to="/books/scan" class="btn-secondary inline-flex items-center">
+          <span class="ltr:mr-2 rtl:ml-2">📷</span> {{ t('scan.scan_book') }}
+        </router-link>
+        <router-link to="/books/add" class="btn-primary inline-flex items-center">
+          <span class="ltr:mr-2 rtl:ml-2">➕</span> {{ t('books.add_book') }}
+        </router-link>
+      </div>
     </div>
 
     <!-- Search & Filters -->
@@ -126,8 +131,11 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../services/api'
+import { useAuthStore } from '../store/auth'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
+const canScan = computed(() => ['admin', 'user'].includes(authStore.user?.role))
 const books = ref([])
 const genres = ref([])
 const loading = ref(false)
@@ -208,5 +216,9 @@ onMounted(() => {
 
 .btn-primary {
   @apply px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm;
 }
 </style>

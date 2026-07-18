@@ -259,6 +259,14 @@ onMounted(() => {
   loadGenres()
   loadWriters()
   loadBook()
+
+  // Pre-fill from query params (from scanner)
+  const query = route.query
+  if (query.title) form.title = query.title
+  if (query.author) form.author = query.author
+  if (query.isbn) form.isbn = query.isbn
+  if (query.edition_house) form.edition_house = query.edition_house
+  if (query.publication_year) form.publication_year = parseInt(query.publication_year)
 })
 </script>
 

@@ -27,6 +27,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/books/scan',
+    name: 'ScanBook',
+    component: () => import('../views/ScanBookView.vue'),
+    meta: { requiresAuth: true, requiresUser: true }
+  },
+  {
     path: '/books/:id',
     name: 'BookDetail',
     component: () => import('../views/BookDetailView.vue'),
@@ -48,6 +54,18 @@ const routes = [
     path: '/genres',
     name: 'Genres',
     component: () => import('../views/GenresView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/publishers',
+    name: 'Publishers',
+    component: () => import('../views/PublishersView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/locations',
+    name: 'Locations',
+    component: () => import('../views/LocationsView.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -96,6 +114,8 @@ router.beforeEach((to, from, next) => {
   } else if (to.meta.guest && authStore.isAuthenticated) {
     next('/')
   } else if (to.meta.requiresAdmin && authStore.user?.role !== 'admin') {
+    next('/')
+  } else if (to.meta.requiresUser && !['admin', 'user'].includes(authStore.user?.role)) {
     next('/')
   } else {
     next()

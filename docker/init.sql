@@ -17,6 +17,91 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Genres reference table
+CREATE TABLE genres (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    name_ar VARCHAR(100),
+    name_fr VARCHAR(100)
+);
+
+-- Writers table
+CREATE TABLE writers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    name_ar VARCHAR(255),
+    name_fr VARCHAR(255),
+    nationality VARCHAR(100),
+    birth_year INTEGER,
+    death_year INTEGER,
+    biography TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_writers_name ON writers(name);
+CREATE INDEX idx_writers_name_ar ON writers(name_ar);
+
+-- Publishers table
+CREATE TABLE publishers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    name_ar VARCHAR(255),
+    name_fr VARCHAR(255),
+    address TEXT,
+    city VARCHAR(100),
+    country VARCHAR(100),
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    website VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_publishers_name ON publishers(name);
+
+-- Library Addresses (multiple physical locations)
+CREATE TABLE addresses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    street VARCHAR(255),
+    city VARCHAR(100),
+    state_province VARCHAR(100),
+    postal_code VARCHAR(20),
+    country VARCHAR(100),
+    is_primary BOOLEAN DEFAULT FALSE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Rooms within addresses
+CREATE TABLE rooms (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    address_id UUID NOT NULL REFERENCES addresses(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    floor VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_rooms_address ON rooms(address_id);
+
+-- Shelves within rooms
+CREATE TABLE shelves (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    capacity INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_shelves_room ON shelves(room_id);
+
 -- Books table
 CREATE TABLE books (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -27,6 +112,8 @@ CREATE TABLE books (
     language VARCHAR(50) DEFAULT 'arabic' CHECK (language IN ('arabic', 'english', 'french', 'other')),
     location_room VARCHAR(100),
     location_shelf VARCHAR(100),
+    shelf_id UUID REFERENCES shelves(id) ON DELETE SET NULL,
+    publisher_id UUID REFERENCES publishers(id) ON DELETE SET NULL,
     read_status BOOLEAN DEFAULT FALSE,
     isbn VARCHAR(20),
     edition_house VARCHAR(255),
@@ -56,31 +143,6 @@ CREATE TABLE lending_records (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Genres reference table
-CREATE TABLE genres (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    name_ar VARCHAR(100),
-    name_fr VARCHAR(100)
-);
-
--- Writers table
-CREATE TABLE writers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    name_ar VARCHAR(255),
-    name_fr VARCHAR(255),
-    nationality VARCHAR(100),
-    birth_year INTEGER,
-    death_year INTEGER,
-    biography TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX idx_writers_name ON writers(name);
-CREATE INDEX idx_writers_name_ar ON writers(name_ar);
-
 -- Audit log table
 CREATE TABLE audit_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -101,6 +163,8 @@ CREATE INDEX idx_books_publication_year ON books(publication_year);
 CREATE INDEX idx_books_read_status ON books(read_status);
 CREATE INDEX idx_books_isbn ON books(isbn);
 CREATE INDEX idx_books_owner ON books(owner_id);
+CREATE INDEX idx_books_shelf ON books(shelf_id);
+CREATE INDEX idx_books_publisher ON books(publisher_id);
 CREATE INDEX idx_lending_book ON lending_records(book_id);
 CREATE INDEX idx_lending_status ON lending_records(status);
 CREATE INDEX idx_lending_due_date ON lending_records(due_date);

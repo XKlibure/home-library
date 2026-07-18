@@ -32,7 +32,9 @@ function forceLogout() {
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('auth_token')
   if (token) {
-    if (isTokenExpired(token)) {
+    // Skip token expiry check for login/register endpoints
+    const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/register')
+    if (!isAuthEndpoint && isTokenExpired(token)) {
       forceLogout()
       return Promise.reject(new Error('Token expired'))
     }

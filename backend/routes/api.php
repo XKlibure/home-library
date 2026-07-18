@@ -13,9 +13,13 @@ use App\Controllers\ReportsController;
 use App\Controllers\UsersController;
 use App\Controllers\GenresController;
 use App\Controllers\WritersController;
+use App\Controllers\PublishersController;
+use App\Controllers\LocationsController;
+use App\Controllers\ScanController;
 use App\Controllers\BackupController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\AdminMiddleware;
+use App\Middleware\UserMiddleware;
 
 // ===== Public Routes =====
 
@@ -39,6 +43,10 @@ $router->delete('/api/books/{id}', [BooksController::class, 'destroy'], [AuthMid
 $router->post('/api/books/{id}/toggle-read', [BooksController::class, 'toggleRead'], [AuthMiddleware::class]);
 $router->post('/api/books/isbn-lookup', [BooksController::class, 'isbnLookup'], [AuthMiddleware::class]);
 
+// Book Scanner (camera OCR) - Admin and User only
+$router->post('/api/scan/cover', [ScanController::class, 'scanCover'], [UserMiddleware::class]);
+$router->post('/api/scan/back', [ScanController::class, 'scanBack'], [UserMiddleware::class]);
+
 // Writers CRUD (read: any auth user, write: admin only)
 $router->get('/api/writers', [WritersController::class, 'index'], [AuthMiddleware::class]);
 $router->get('/api/writers/{id}', [WritersController::class, 'show'], [AuthMiddleware::class]);
@@ -51,6 +59,29 @@ $router->get('/api/genres', [GenresController::class, 'index'], [AuthMiddleware:
 $router->post('/api/genres', [GenresController::class, 'store'], [AdminMiddleware::class]);
 $router->put('/api/genres/{id}', [GenresController::class, 'update'], [AdminMiddleware::class]);
 $router->delete('/api/genres/{id}', [GenresController::class, 'destroy'], [AdminMiddleware::class]);
+
+// Publishers CRUD (read: any auth user, write: admin only)
+$router->get('/api/publishers', [PublishersController::class, 'index'], [AuthMiddleware::class]);
+$router->get('/api/publishers/{id}', [PublishersController::class, 'show'], [AuthMiddleware::class]);
+$router->post('/api/publishers', [PublishersController::class, 'store'], [AdminMiddleware::class]);
+$router->put('/api/publishers/{id}', [PublishersController::class, 'update'], [AdminMiddleware::class]);
+$router->delete('/api/publishers/{id}', [PublishersController::class, 'destroy'], [AdminMiddleware::class]);
+
+// Locations (Addresses > Rooms > Shelves)
+$router->get('/api/locations/tree', [LocationsController::class, 'tree'], [AuthMiddleware::class]);
+$router->get('/api/locations', [LocationsController::class, 'index'], [AuthMiddleware::class]);
+$router->get('/api/locations/{id}', [LocationsController::class, 'show'], [AuthMiddleware::class]);
+$router->post('/api/locations', [LocationsController::class, 'store'], [AdminMiddleware::class]);
+$router->put('/api/locations/{id}', [LocationsController::class, 'update'], [AdminMiddleware::class]);
+$router->delete('/api/locations/{id}', [LocationsController::class, 'destroy'], [AdminMiddleware::class]);
+$router->get('/api/locations/{id}/rooms', [LocationsController::class, 'listRooms'], [AuthMiddleware::class]);
+$router->post('/api/rooms', [LocationsController::class, 'storeRoom'], [AdminMiddleware::class]);
+$router->put('/api/rooms/{id}', [LocationsController::class, 'updateRoom'], [AdminMiddleware::class]);
+$router->delete('/api/rooms/{id}', [LocationsController::class, 'destroyRoom'], [AdminMiddleware::class]);
+$router->get('/api/rooms/{id}/shelves', [LocationsController::class, 'listShelves'], [AuthMiddleware::class]);
+$router->post('/api/shelves', [LocationsController::class, 'storeShelf'], [AdminMiddleware::class]);
+$router->put('/api/shelves/{id}', [LocationsController::class, 'updateShelf'], [AdminMiddleware::class]);
+$router->delete('/api/shelves/{id}', [LocationsController::class, 'destroyShelf'], [AdminMiddleware::class]);
 
 // Lending
 $router->get('/api/lending', [LendingController::class, 'index'], [AuthMiddleware::class]);
