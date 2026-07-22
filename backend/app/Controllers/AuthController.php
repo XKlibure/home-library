@@ -112,7 +112,7 @@ class AuthController extends BaseController
         }
 
         // Create user
-        $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT, ['cost' => 12]);
+        $passwordHash = password_hash($data['password'], PASSWORD_ARGON2ID);
         $role = $data['role'] ?? 'user';
 
         // Only admin can create admin users
@@ -242,8 +242,16 @@ class AuthController extends BaseController
             return;
         }
 
-        if (strlen($data['new_password']) < 8) {
-            $this->json(['error' => 'New password must be at least 8 characters long.'], 422);
+        if (strlen($data['new_password']) < 10) {
+            $this->json(['error' => 'New password must be at least 10 characters long.'], 422);
+            return;
+        }
+
+        // Enforce same complexity as registration
+        if (!preg_match('/[A-Z]/', $data['new_password']) ||
+            !preg_match('/[a-z]/', $data['new_password']) ||
+            !preg_match('/[0-9]/', $data['new_password'])) {
+            $this->json(['error' => 'Password must contain uppercase, lowercase, and a number.'], 422);
             return;
         }
 
@@ -257,7 +265,7 @@ class AuthController extends BaseController
             return;
         }
 
-        $newHash = password_hash($data['new_password'], PASSWORD_BCRYPT, ['cost' => 12]);
+        $newHash = password_hash($data['new_password'], PASSWORD_ARGON2ID);
         $stmt = $db->prepare('UPDATE users SET password_hash = :hash, updated_at = NOW() WHERE id = :id');
         $stmt->execute(['hash' => $newHash, 'id' => $authUser['id']]);
 

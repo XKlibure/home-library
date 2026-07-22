@@ -1,125 +1,118 @@
 <template>
-  <div id="app" class="min-h-screen bg-gray-50">
-    <!-- Navigation -->
-    <nav v-if="isAuthenticated" class="bg-white shadow-sm border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-          <div class="flex items-center">
-            <router-link to="/" class="flex items-center space-x-2 rtl:space-x-reverse">
-              <img src="/logo.png" alt="Bookoholik" class="h-9 w-9 object-contain" />
-              <span class="text-xl font-bold text-primary-700 hidden sm:inline">{{ t('app_name') }}</span>
-            </router-link>
-            
-            <div class="hidden lg:flex ltr:ml-10 rtl:mr-10 space-x-4 rtl:space-x-reverse">
-              <router-link to="/books" class="nav-link">{{ t('nav.books') }}</router-link>
-              <router-link to="/writers" class="nav-link">{{ t('nav.writers') }}</router-link>
-              <router-link to="/genres" class="nav-link">{{ t('nav.genres') }}</router-link>
-              <router-link to="/publishers" class="nav-link">{{ t('nav.publishers') }}</router-link>
-              <router-link to="/locations" class="nav-link">{{ t('nav.locations') }}</router-link>
-              <router-link to="/lending" class="nav-link">{{ t('nav.lending') }}</router-link>
-              <router-link to="/reports" class="nav-link">{{ t('nav.reports') }}</router-link>
-              <router-link v-if="isAdmin" to="/users" class="nav-link">{{ t('nav.users') }}</router-link>
-              <router-link v-if="isAdmin" to="/backup" class="nav-link">{{ t('nav.backup') }}</router-link>
-            </div>
-          </div>
-          
-          <div class="flex items-center space-x-3 rtl:space-x-reverse">
-            <!-- Language Switcher -->
-            <select v-model="currentLocale" @change="switchLanguage" 
-                    class="text-xs border border-gray-300 rounded-md px-1.5 py-1 bg-white focus:ring-2 focus:ring-primary-500 outline-none">
-              <option value="en">🇬🇧 EN</option>
-              <option value="ar">🇸🇦 ع</option>
-              <option value="fr">🇫🇷 FR</option>
-            </select>
-            <router-link to="/settings" class="text-sm text-gray-600 hover:text-primary-700 hidden sm:inline">
-              ⚙️ {{ user?.full_name }}
-            </router-link>
-            <button @click="logout" class="text-sm text-red-600 hover:text-red-800 hidden sm:inline">{{ t('logout') }}</button>
-            <!-- Mobile hamburger -->
-            <button @click="mobileMenuOpen = !mobileMenuOpen" class="lg:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path v-if="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+  <div v-if="isAuthenticated" class="flex h-screen bg-slate-50 overflow-hidden">
 
-      <!-- Mobile menu (toggled) -->
-      <div v-if="mobileMenuOpen" class="lg:hidden border-t border-gray-200 px-4 py-3 space-y-1 bg-white shadow-lg">
-        <router-link to="/books" class="block nav-link" @click="mobileMenuOpen = false">📚 {{ t('nav.books') }}</router-link>
-        <router-link to="/writers" class="block nav-link" @click="mobileMenuOpen = false">✍️ {{ t('nav.writers') }}</router-link>
-        <router-link to="/genres" class="block nav-link" @click="mobileMenuOpen = false">📖 {{ t('nav.genres') }}</router-link>
-        <router-link to="/publishers" class="block nav-link" @click="mobileMenuOpen = false">🏢 {{ t('nav.publishers') }}</router-link>
-        <router-link to="/locations" class="block nav-link" @click="mobileMenuOpen = false">📍 {{ t('nav.locations') }}</router-link>
-        <router-link to="/lending" class="block nav-link" @click="mobileMenuOpen = false">🤝 {{ t('nav.lending') }}</router-link>
-        <router-link to="/reports" class="block nav-link" @click="mobileMenuOpen = false">📊 {{ t('nav.reports') }}</router-link>
-        <router-link v-if="isAdmin" to="/users" class="block nav-link" @click="mobileMenuOpen = false">👥 {{ t('nav.users') }}</router-link>
-        <router-link v-if="isAdmin" to="/backup" class="block nav-link" @click="mobileMenuOpen = false">💾 {{ t('nav.backup') }}</router-link>
-        <div class="border-t border-gray-100 pt-2 mt-2">
-          <router-link to="/settings" class="block nav-link" @click="mobileMenuOpen = false">⚙️ {{ t('nav.settings') }}</router-link>
-          <button @click="logout" class="block w-full text-left nav-link text-red-600">🚪 {{ t('logout') }}</button>
-        </div>
-      </div>
-    </nav>
+    <!-- ════════════ DESKTOP SIDEBAR (always visible on lg+) ════════════ -->
+    <aside class="hidden lg:flex flex-col w-64 shrink-0 bg-slate-900 overflow-y-auto">
+      <SidebarContent :is-admin="isAdmin" :ebooks-enabled="ebooksEnabled"
+                      v-model:locale="currentLocale"
+                      :user="user"
+                      @switch-language="switchLanguage"
+                      @logout="logout" />
+    </aside>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <router-view />
-    </main>
-
-    <!-- Toast Notifications -->
-    <div class="fixed top-4 ltr:right-4 rtl:left-4 z-50 space-y-2">
-      <transition-group name="toast">
-        <div v-for="toast in toasts" :key="toast.id"
-             :class="['px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-sm',
-                      toast.type === 'success' ? 'bg-green-500' :
-                      toast.type === 'error' ? 'bg-red-500' : 'bg-blue-500']">
-          {{ toast.message }}
+    <!-- ════════════ MOBILE DRAWER (overlay below lg) ═══════════════════ -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="sidebarOpen" class="fixed inset-0 z-50 flex lg:hidden" @click.self="sidebarOpen = false">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-black/60" @click="sidebarOpen = false" />
+          <!-- Sidebar panel -->
+          <aside class="relative flex flex-col w-72 max-w-[85vw] bg-slate-900 h-full overflow-y-auto shadow-2xl">
+            <SidebarContent :is-admin="isAdmin" :ebooks-enabled="ebooksEnabled"
+                            v-model:locale="currentLocale"
+                            :user="user"
+                            @switch-language="switchLanguage"
+                            @logout="logout"
+                            @close="sidebarOpen = false" />
+          </aside>
         </div>
-      </transition-group>
+      </Transition>
+    </Teleport>
+
+    <!-- ════════════ MAIN CONTENT ════════════════════════════════════════ -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+      <!-- Mobile top bar (hamburger + logo) -->
+      <header class="lg:hidden flex items-center gap-3 px-4 h-14 bg-white border-b border-gray-200 shrink-0">
+        <button @click="sidebarOpen = true" class="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100" aria-label="Open menu">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <img src="/logo.png" class="w-7 h-7 object-contain" alt="Bookoholik" />
+        <span class="font-semibold text-gray-800 text-sm">Bookoholik</span>
+      </header>
+
+      <!-- Page output -->
+      <main class="flex-1 overflow-y-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <router-view />
+        </div>
+      </main>
     </div>
+  </div>
+
+  <!-- ════════════ UNAUTHENTICATED: login/register ══════════════════════ -->
+  <div v-else class="min-h-screen bg-gray-50">
+    <router-view />
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="fixed top-4 ltr:right-4 rtl:left-4 z-[60] space-y-2 pointer-events-none">
+    <transition-group name="toast">
+      <div
+        v-for="toast in toasts" :key="toast.id"
+        :class="[
+          'px-4 py-3 rounded-xl shadow-lg text-white text-sm max-w-sm pointer-events-auto',
+          toast.type === 'success' ? 'bg-emerald-500' :
+          toast.type === 'error'   ? 'bg-red-500'     : 'bg-blue-500'
+        ]"
+      >{{ toast.message }}</div>
+    </transition-group>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from './store/auth'
-import { useToastStore } from './store/toast'
-import { setLocale } from './i18n'
+import { useAuthStore }   from './store/auth'
+import { useToastStore }  from './store/toast'
+import { useEbookPlugin } from './store/ebookPlugin'
+import { setLocale }      from './i18n'
+import SidebarContent     from './components/SidebarContent.vue'
 
-const { t } = useI18n()
-const router = useRouter()
-const authStore = useAuthStore()
-const toastStore = useToastStore()
+const { t }       = useI18n()
+const router      = useRouter()
+const authStore   = useAuthStore()
+const toastStore  = useToastStore()
+const ebookPlugin = useEbookPlugin()
 
+const sidebarOpen   = ref(false)
 const currentLocale = ref(localStorage.getItem('app_locale') || 'en')
-const mobileMenuOpen = ref(false)
+
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-const user = computed(() => authStore.user)
-const isAdmin = computed(() => authStore.user?.role === 'admin')
-const toasts = computed(() => toastStore.toasts)
+const user            = computed(() => authStore.user)
+const isAdmin         = computed(() => authStore.user?.role === 'admin')
+const ebooksEnabled   = computed(() => ebookPlugin.enabled)
+const toasts          = computed(() => toastStore.toasts)
 
-function switchLanguage() {
-  setLocale(currentLocale.value)
-}
+router.afterEach(() => { sidebarOpen.value = false })
 
-function logout() {
-  mobileMenuOpen.value = false
-  authStore.logout()
-  router.push('/login')
-}
+onMounted(() => {
+  if (authStore.isAuthenticated) ebookPlugin.load()
+})
+
+function switchLanguage() { setLocale(currentLocale.value) }
+function logout() { authStore.logout(); router.push('/login') }
 </script>
 
 <style scoped>
-.nav-link {
-  @apply px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-primary-700 hover:bg-primary-50 transition-colors;
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.25s; }
+.fade-enter-from, .fade-leave-to       { opacity: 0; }
 
-.router-link-active {
-  @apply text-primary-700 bg-primary-50;
-}
+.toast-enter-active { transition: all 0.3s ease; }
+.toast-leave-active { transition: all 0.2s ease; }
+.toast-enter-from   { opacity: 0; transform: translateX(1rem); }
+.toast-leave-to     { opacity: 0; transform: translateX(1rem); }
 </style>

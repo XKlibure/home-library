@@ -154,6 +154,66 @@ CREATE TABLE audit_log (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- =====================================================
+-- E-Book Plugin (optional, disabled by default)
+-- =====================================================
+
+-- Plugin settings table
+CREATE TABLE IF NOT EXISTS plugin_settings (
+    id SERIAL PRIMARY KEY,
+    plugin_name VARCHAR(100) NOT NULL,
+    setting_key VARCHAR(100) NOT NULL,
+    setting_value TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(plugin_name, setting_key)
+);
+
+INSERT INTO plugin_settings (plugin_name, setting_key, setting_value)
+VALUES ('ebooks', 'enabled', 'false')
+ON CONFLICT (plugin_name, setting_key) DO NOTHING;
+
+-- E-Books table
+CREATE TABLE IF NOT EXISTS ebooks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    book_id UUID REFERENCES books(id) ON DELETE SET NULL,
+    title VARCHAR(500) NOT NULL,
+    author VARCHAR(500),
+    file_name VARCHAR(500) NOT NULL,
+    file_path VARCHAR(1000) NOT NULL,
+    file_size BIGINT DEFAULT 0,
+    file_format VARCHAR(10) NOT NULL CHECK (file_format IN ('pdf', 'epub', 'mobi')),
+    cover_source VARCHAR(20) DEFAULT 'default' CHECK (cover_source IN ('extracted', 'fetched', 'custom', 'default')),
+    cover_path VARCHAR(1000),
+    total_pages INTEGER DEFAULT 0,
+    current_page INTEGER DEFAULT 0,
+    read_percentage NUMERIC(5,2) DEFAULT 0.00,
+    location_type VARCHAR(20) DEFAULT 'local' CHECK (location_type IN ('local', 'remote')),
+    metadata_complete BOOLEAN DEFAULT FALSE,
+    owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    publisher_id UUID REFERENCES publishers(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ebooks_book_id ON ebooks(book_id);
+CREATE INDEX IF NOT EXISTS idx_ebooks_owner   ON ebooks(owner_id);
+CREATE INDEX IF NOT EXISTS idx_ebooks_format  ON ebooks(file_format);
+CREATE INDEX IF NOT EXISTS idx_ebooks_publisher ON ebooks(publisher_id);
+CREATE INDEX IF NOT EXISTS idx_ebooks_title   ON ebooks USING gin(to_tsvector('simple', title));
+
+-- Per-user reading progress
+CREATE TABLE IF NOT EXISTS ebook_reading_progress (
+    user_id         UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+    ebook_id        UUID NOT NULL REFERENCES ebooks(id) ON DELETE CASCADE,
+    current_page    INTEGER        DEFAULT 0,
+    read_percentage NUMERIC(5,2)   DEFAULT 0.00,
+    last_read_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (user_id, ebook_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ebook_progress_user  ON ebook_reading_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_ebook_progress_ebook ON ebook_reading_progress(ebook_id);
+
 -- Indexes for performance
 CREATE INDEX idx_books_title ON books USING gin(to_tsvector('simple', title));
 CREATE INDEX idx_books_author ON books USING gin(to_tsvector('simple', author));

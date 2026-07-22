@@ -72,6 +72,35 @@
       </form>
     </div>
 
+    <!-- E-Book Plugin Toggle (Admin only) -->
+    <div v-if="user?.role === 'admin'" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-semibold text-gray-800 mb-1">📱 {{ t('settings.ebook_plugin_title') }}</h2>
+      <p class="text-sm text-gray-500 mb-4">{{ t('settings.ebook_plugin_description') }}</p>
+      <div class="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+        <div>
+          <p class="text-sm font-medium text-gray-900">{{ t('settings.ebook_plugin_label') }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">
+            {{ ebookPlugin.enabled ? t('settings.ebook_plugin_active') : t('settings.ebook_plugin_inactive') }}
+          </p>
+        </div>
+        <button
+          @click="toggleEbookPlugin"
+          :disabled="togglingPlugin"
+          :class="[
+            'relative inline-flex h-7 w-13 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50',
+            ebookPlugin.enabled ? 'bg-indigo-600' : 'bg-gray-300'
+          ]"
+        >
+          <span
+            :class="[
+              'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+              ebookPlugin.enabled ? 'translate-x-7' : 'translate-x-1'
+            ]"
+          ></span>
+        </button>
+      </div>
+    </div>
+
     <!-- Account Info (read-only) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">ℹ️ {{ t('settings.account_info') }}</h2>
@@ -95,6 +124,7 @@ import { useI18n } from 'vue-i18n'
 import api from '../services/api'
 import { useAuthStore } from '../store/auth'
 import { useToastStore } from '../store/toast'
+import { useEbookPlugin } from '../store/ebookPlugin'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -121,6 +151,27 @@ const passwordForm = reactive({
 const passwordLoading = ref(false)
 const passwordMsg = ref('')
 const passwordSuccess = ref(false)
+
+const ebookPlugin = useEbookPlugin()
+
+const togglingPlugin = ref(false)
+
+async function toggleEbookPlugin() {
+  togglingPlugin.value = true
+  try {
+    if (ebookPlugin.enabled) {
+      await ebookPlugin.disable()
+      toastStore.success(t('settings.ebook_plugin_disabled'))
+    } else {
+      await ebookPlugin.enable()
+      toastStore.success(t('settings.ebook_plugin_enabled'))
+    }
+  } catch {
+    toastStore.error(t('settings.update_failed'))
+  } finally {
+    togglingPlugin.value = false
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '—'

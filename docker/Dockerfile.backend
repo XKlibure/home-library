@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libicu-dev \
+    poppler-utils \
+    ghostscript \
+    imagemagick \
     tesseract-ocr \
     tesseract-ocr-ara \
     tesseract-ocr-fra \
@@ -26,13 +29,22 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite headers
 
-# Increase PHP limits for image uploads (base64 encoded images are large)
-RUN echo 'post_max_size = 20M' > /usr/local/etc/php/conf.d/uploads.ini && \
-    echo 'upload_max_filesize = 20M' >> /usr/local/etc/php/conf.d/uploads.ini && \
-    echo 'memory_limit = 256M' >> /usr/local/etc/php/conf.d/uploads.ini && \
-    echo 'max_execution_time = 60' >> /usr/local/etc/php/conf.d/uploads.ini && \
-    echo 'display_errors = Off' >> /usr/local/etc/php/conf.d/uploads.ini && \
-    echo 'log_errors = On' >> /usr/local/etc/php/conf.d/uploads.ini
+# Increase PHP limits for image uploads and ebook files
+RUN echo 'post_max_size = 110M'           >  /usr/local/etc/php/conf.d/uploads.ini && \
+    echo 'upload_max_filesize = 100M'      >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo 'memory_limit = 256M'             >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo 'max_execution_time = 120'        >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo 'display_errors = Off'            >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo 'log_errors = On'                 >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Security hardening
+RUN echo 'expose_php = Off'                               >  /usr/local/etc/php/conf.d/security.ini && \
+    echo 'allow_url_include = Off'                        >> /usr/local/etc/php/conf.d/security.ini && \
+    echo 'session.cookie_httponly = 1'                    >> /usr/local/etc/php/conf.d/security.ini && \
+    echo 'session.cookie_samesite = Strict'               >> /usr/local/etc/php/conf.d/security.ini && \
+    echo 'session.use_strict_mode = 1'                    >> /usr/local/etc/php/conf.d/security.ini
+# Note: open_basedir is set in apache.conf (php_admin_value) so it applies only
+# to web requests and does not break Composer's phar:// stream during build.
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -57,8 +69,14 @@ RUN composer install --no-dev --optimize-autoloader
 # Restrict filesystem: remove write access except storage
 RUN chmod -R 555 /var/www/html \
     && chmod -R 775 /var/www/html/storage 2>/dev/null || true \
+    && mkdir -p /var/www/html/storage/ebooks/files \
+    && mkdir -p /var/www/html/storage/ebooks/covers \
+    && chmod -R 775 /var/www/html/storage/ebooks 2>/dev/null || true \
     && chown -R www-data:www-data /var/www/html/storage 2>/dev/null || true
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -17,39 +17,70 @@ class ReportsController extends BaseController
     public function summary(array $params): void
     {
         $db = Database::getConnection();
-
         $stats = [];
 
-        // Total books
+        // ── Physical books ─────────────────────────────────────────────
         $stmt = $db->query('SELECT COUNT(*) as total FROM books');
-        $stats['total_books'] = (int)$stmt->fetch()['total'];
+        $physicalTotal = (int)$stmt->fetch()['total'];
 
-        // Read vs unread
         $stmt = $db->query('SELECT read_status, COUNT(*) as count FROM books GROUP BY read_status');
-        $readStats = $stmt->fetchAll();
-        $stats['books_read'] = 0;
-        $stats['books_unread'] = 0;
+        $readStats   = $stmt->fetchAll();
+        $booksRead   = 0;
+        $booksUnread = 0;
         foreach ($readStats as $row) {
-            if ($row['read_status']) {
-                $stats['books_read'] = (int)$row['count'];
-            } else {
-                $stats['books_unread'] = (int)$row['count'];
+            if ($row['read_status']) { $booksRead   = (int)$row['count']; }
+            else                    { $booksUnread = (int)$row['count']; }
+        }
+
+        // ── E-books (only if plugin enabled) ──────────────────────────────
+        $ebookTotal     = 0;
+        $ebooksFinished = 0;
+        $pluginStmt = $db->prepare("
+            SELECT setting_value FROM plugin_settings
+            WHERE plugin_name = 'ebooks' AND setting_key = 'enabled'
+        ");
+        $pluginStmt->execute();
+        $pluginRow = $pluginStmt->fetch();
+        $pluginEnabled = $pluginRow && $pluginRow['setting_value'] === 'true';
+
+        if ($pluginEnabled) {
+            $stmt = $db->query('SELECT COUNT(*) as total FROM ebooks');
+            $ebookTotal = (int)$stmt->fetch()['total'];
+
+            // Count ebooks the CURRENT USER has fully read (100% progress)
+            $authUser = $this->getAuthUser();
+            $userId   = $authUser['id'] ?? null;
+            if ($userId) {
+                $stmt = $db->prepare("
+                    SELECT COUNT(*) as total
+                    FROM ebook_reading_progress
+                    WHERE user_id = :uid AND read_percentage >= 100
+                ");
+                $stmt->execute(['uid' => $userId]);
+                $ebooksFinished = (int)$stmt->fetch()['total'];
             }
         }
 
-        // By language
-        $stmt = $db->query('SELECT language, COUNT(*) as count FROM books GROUP BY language ORDER BY count DESC');
-        $stats['by_language'] = $stmt->fetchAll();
+        // ── Combined totals ──────────────────────────────────────────────
+        $stats['total_books']    = $physicalTotal + $ebookTotal;
+        $stats['physical_books'] = $physicalTotal;
+        $stats['total_ebooks']   = $ebookTotal;
+        $stats['ebook_plugin']   = $pluginEnabled;
+        $stats['books_read']     = $booksRead + $ebooksFinished;
+        $stats['books_unread']   = $booksUnread + ($ebookTotal - $ebooksFinished);
 
-        // Currently lent out
+        // ── Lending ──────────────────────────────────────────────────
         $stmt = $db->query("SELECT COUNT(*) as total FROM lending_records WHERE status IN ('active', 'overdue')");
         $stats['books_lent'] = (int)$stmt->fetch()['total'];
 
-        // Overdue
         $stmt = $db->query("SELECT COUNT(*) as total FROM lending_records WHERE status = 'overdue'");
         $stats['books_overdue'] = (int)$stmt->fetch()['total'];
 
-        // Total users
+        // ── Language distribution (physical books only) ──────────────────
+        $stmt = $db->query('SELECT language, COUNT(*) as count FROM books GROUP BY language ORDER BY count DESC');
+        $stats['by_language'] = $stmt->fetchAll();
+
+        // ── Users ──────────────────────────────────────────────────────
         $stmt = $db->query('SELECT COUNT(*) as total FROM users WHERE is_active = TRUE');
         $stats['total_users'] = (int)$stmt->fetch()['total'];
 

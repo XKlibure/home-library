@@ -98,6 +98,25 @@ const routes = [
     component: () => import('../views/SettingsView.vue'),
     meta: { requiresAuth: true }
   },
+  // E-Book Plugin routes
+  {
+    path: '/ebooks',
+    name: 'Ebooks',
+    component: () => import('../views/EbooksView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ebooks/:id',
+    name: 'EbookDetail',
+    component: () => import('../views/EbookDetailView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ebooks/:id/read',
+    name: 'EbookReader',
+    component: () => import('../views/EbookReaderView.vue'),
+    meta: { requiresAuth: true }
+  },
 ]
 
 const router = createRouter({

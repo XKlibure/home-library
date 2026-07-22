@@ -5,15 +5,14 @@
  * All requests are routed through this file.
  */
 
-// CORS headers — restrict to configured frontend origin
+// CORS headers — only allow the configured frontend origin
 $allowedOrigin = $_ENV['CORS_ORIGIN'] ?? 'http://localhost:3000';
 $requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($requestOrigin === $allowedOrigin) {
     header('Access-Control-Allow-Origin: ' . $allowedOrigin);
     header('Access-Control-Allow-Credentials: true');
-} else {
-    header('Access-Control-Allow-Origin: ' . $allowedOrigin);
 }
+// No CORS header is sent for non-matching origins — the browser blocks the request.
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header('Access-Control-Max-Age: 86400');

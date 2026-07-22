@@ -9,6 +9,9 @@
           <div>
             <p class="text-sm text-gray-500">{{ t('dashboard.total_books') }}</p>
             <p class="text-3xl font-bold text-gray-900">{{ stats.total_books || 0 }}</p>
+            <p v-if="stats.ebook_plugin && stats.total_ebooks > 0" class="text-xs text-indigo-500 mt-0.5">
+              {{ t('dashboard.includes_ebooks', { count: stats.total_ebooks }) }}
+            </p>
           </div>
           <span class="text-4xl">📚</span>
         </div>
@@ -110,8 +113,9 @@ const readPercentage = computed(() => {
 })
 
 function getLanguagePercentage(count) {
-  if (!stats.value.total_books) return 0
-  return Math.round((count / stats.value.total_books) * 100)
+  // Language chart only covers physical books
+  const base = stats.value.physical_books || stats.value.total_books || 1
+  return Math.round((count / base) * 100)
 }
 
 function getLanguageColor(lang) {

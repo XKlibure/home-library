@@ -16,5 +16,23 @@ export default defineConfig({
     alias: {
       '@': '/src'
     }
+  },
+  optimizeDeps: {
+    include: ['pdfjs-dist', 'epubjs']
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          // Output the PDF.js worker as .js (not .mjs) so every nginx/browser
+          // serves it with the correct application/javascript MIME type without
+          // needing special mime.types configuration.
+          if (assetInfo.name && assetInfo.name.includes('pdf.worker')) {
+            return 'assets/pdf.worker-[hash].js'
+          }
+          return 'assets/[name]-[hash][extname]'
+        }
+      }
+    }
   }
 })

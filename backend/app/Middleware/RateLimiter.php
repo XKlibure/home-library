@@ -14,7 +14,7 @@ class RateLimiter
     {
         $this->storageDir = sys_get_temp_dir() . '/rate_limit';
         if (!is_dir($this->storageDir)) {
-            mkdir($this->storageDir, 0755, true);
+            mkdir($this->storageDir, 0700, true); // owner-only: no other processes can read rate limit files
         }
     }
 

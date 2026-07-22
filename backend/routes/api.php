@@ -7,6 +7,8 @@
  */
 
 use App\Controllers\AuthController;
+use App\Controllers\EbooksController;
+use App\Controllers\EbookPluginController;
 use App\Controllers\BooksController;
 use App\Controllers\LendingController;
 use App\Controllers\ReportsController;
@@ -100,6 +102,28 @@ $router->get('/api/reports/by-location', [ReportsController::class, 'byLocation'
 $router->get('/api/reports/lending-history', [ReportsController::class, 'lendingHistory'], [AuthMiddleware::class]);
 $router->get('/api/reports/export/csv', [ReportsController::class, 'exportCsv'], [AuthMiddleware::class]);
 $router->get('/api/reports/export/pdf', [ReportsController::class, 'exportPdf'], [AuthMiddleware::class]);
+
+// ===== E-Book Plugin Routes =====
+
+// Plugin status (any authenticated user)
+$router->get('/api/ebook-plugin/status', [EbookPluginController::class, 'status'], [AuthMiddleware::class]);
+
+// Plugin enable/disable (admin only)
+$router->post('/api/ebook-plugin/enable',  [EbookPluginController::class, 'enable'],  [AdminMiddleware::class]);
+$router->post('/api/ebook-plugin/disable', [EbookPluginController::class, 'disable'], [AdminMiddleware::class]);
+
+// E-Books CRUD
+$router->get('/api/ebooks',                      [EbooksController::class, 'index'],         [AuthMiddleware::class]);
+$router->get('/api/ebooks/{id}',                 [EbooksController::class, 'show'],          [AuthMiddleware::class]);
+$router->post('/api/ebooks/upload',              [EbooksController::class, 'upload'],        [UserMiddleware::class]);
+$router->put('/api/ebooks/{id}',                 [EbooksController::class, 'update'],        [UserMiddleware::class]);
+$router->delete('/api/ebooks/{id}',              [EbooksController::class, 'destroy'],       [UserMiddleware::class]);
+$router->post('/api/ebooks/{id}/progress',       [EbooksController::class, 'updateProgress'],[AuthMiddleware::class]);
+$router->get('/api/ebooks/{id}/open',            [EbooksController::class, 'open'],          [AuthMiddleware::class]);
+$router->get('/api/ebooks/{id}/cover',           [EbooksController::class, 'cover'],          [AuthMiddleware::class]);
+$router->post('/api/ebooks/{id}/cover',           [EbooksController::class, 'uploadCover'],    [UserMiddleware::class]);
+$router->post('/api/ebooks/{id}/reextract-cover', [EbooksController::class, 'reextractCover'], [UserMiddleware::class]);
+$router->post('/api/ebooks/{id}/refresh-cover',  [EbooksController::class, 'refreshCover'],  [UserMiddleware::class]);
 
 // ===== Admin Routes =====
 
