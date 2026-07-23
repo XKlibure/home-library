@@ -39,6 +39,7 @@ RUN echo 'post_max_size = 110M'           >  /usr/local/etc/php/conf.d/uploads.i
 
 # Security hardening
 RUN echo 'expose_php = Off'                               >  /usr/local/etc/php/conf.d/security.ini && \
+    echo 'allow_url_fopen = Off'                          >> /usr/local/etc/php/conf.d/security.ini && \
     echo 'allow_url_include = Off'                        >> /usr/local/etc/php/conf.d/security.ini && \
     echo 'session.cookie_httponly = 1'                    >> /usr/local/etc/php/conf.d/security.ini && \
     echo 'session.cookie_samesite = Strict'               >> /usr/local/etc/php/conf.d/security.ini && \

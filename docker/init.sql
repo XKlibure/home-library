@@ -13,6 +13,7 @@ CREATE TABLE users (
     full_name VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user', 'viewer')),
     is_active BOOLEAN DEFAULT TRUE,
+    must_change_password BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -169,7 +170,7 @@ CREATE TABLE IF NOT EXISTS plugin_settings (
 );
 
 INSERT INTO plugin_settings (plugin_name, setting_key, setting_value)
-VALUES ('ebooks', 'enabled', 'false')
+VALUES ('ebooks', 'enabled', 'true')
 ON CONFLICT (plugin_name, setting_key) DO NOTHING;
 
 -- E-Books table
@@ -214,6 +215,38 @@ CREATE TABLE IF NOT EXISTS ebook_reading_progress (
 CREATE INDEX IF NOT EXISTS idx_ebook_progress_user  ON ebook_reading_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_ebook_progress_ebook ON ebook_reading_progress(ebook_id);
 
+-- Password reset tokens (time-limited, one-use)
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token      VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used_at    TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_user  ON password_reset_tokens(user_id);
+
+-- Access requests (non-members requesting an account)
+CREATE TABLE IF NOT EXISTS access_requests (
+    id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email      VARCHAR(255) NOT NULL,
+    message    TEXT,
+    status     VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status);
+
+-- Per-user plugin settings (admin can disable ebook plugin for specific users)
+CREATE TABLE IF NOT EXISTS user_plugin_settings (
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plugin_name VARCHAR(100) NOT NULL,
+    enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (user_id, plugin_name)
+);
+
 -- Indexes for performance
 CREATE INDEX idx_books_title ON books USING gin(to_tsvector('simple', title));
 CREATE INDEX idx_books_author ON books USING gin(to_tsvector('simple', author));
@@ -255,6 +288,10 @@ INSERT INTO genres (name, name_ar, name_fr) VALUES
     ('Islamic Studies', 'دراسات إسلامية', 'Études islamiques');
 
 -- Insert default admin user
--- DEFAULT PASSWORD: Admin1234! (MUST be changed on first login)
-INSERT INTO users (username, email, password_hash, full_name, role) VALUES
-    ('admin', 'admin@homelibrary.local', '$2y$12$/COW4ljVYn.YoMpWPrxtgu4dyeNo73abitkJiqab8LEUn.qqq3D3e', 'مدير المكتبة', 'admin');
+-- Password: Admin1234! (bcrypt, cost 12). Must be changed on first login.
+-- password_verify() handles both bcrypt and argon2id transparently.
+INSERT INTO users (username, email, password_hash, full_name, role, must_change_password) VALUES
+    ('admin', 'admin@homelibrary.local',
+     '$2y$12$/COW4ljVYn.YoMpWPrxtgu4dyeNo73abitkJiqab8LEUn.qqq3D3e',
+     'مدير المكتبة', 'admin', TRUE)
+    ON CONFLICT (username) DO NOTHING;

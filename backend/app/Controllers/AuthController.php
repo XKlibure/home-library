@@ -50,96 +50,72 @@ class AuthController extends BaseController
         $token = $this->generateToken($user);
 
         $this->json([
-            'message' => 'Login successful',
-            'token' => $token,
+            'message'             => 'Login successful',
+            'token'               => $token,
+            'must_change_password'=> (bool)$user['must_change_password'],
             'user' => [
-                'id' => $user['id'],
-                'username' => $user['username'],
-                'email' => $user['email'],
-                'full_name' => $user['full_name'],
-                'role' => $user['role'],
+                'id'                  => $user['id'],
+                'username'            => $user['username'],
+                'email'               => $user['email'],
+                'full_name'           => $user['full_name'],
+                'role'                => $user['role'],
+                'must_change_password'=> (bool)$user['must_change_password'],
             ]
         ]);
     }
 
     /**
-     * POST /api/auth/register
+     * POST /api/auth/change-initial-password
+     * Used on first login when must_change_password = true.
+     * Enforces the same rules as changePassword but also clears the flag.
      */
-    public function register(array $params): void
+    public function changeInitialPassword(array $params): void
     {
-        // Rate limit registration: 3 per hour per IP
-        $rateLimiter = new \App\Middleware\RateLimiter();
-        $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        if (!$rateLimiter->attempt('register:' . $clientIp, 3, 3600)) {
-            $this->json(['error' => 'Too many registration attempts. Please try again later.'], 429);
+        $data     = $this->getRequestBody();
+        $authUser = $this->getAuthUser();
+
+        $errors = $this->validateRequired($data, ['new_password', 'confirm_password']);
+        if ($errors) { $this->json(['errors' => $errors], 422); return; }
+
+        if ($data['new_password'] !== $data['confirm_password']) {
+            $this->json(['error' => 'Passwords do not match.'], 422);
             return;
         }
-
-        $data = $this->getRequestBody();
-
-        $errors = $this->validateRequired($data, ['username', 'email', 'password', 'full_name']);
-        if ($errors) {
-            $this->json(['errors' => $errors], 422);
+        if (strlen($data['new_password']) < 10) {
+            $this->json(['error' => 'Password must be at least 10 characters.'], 422);
             return;
         }
-
-        // Validate email format
-        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            $this->json(['error' => 'Invalid email format.'], 422);
-            return;
-        }
-
-        // Validate password strength
-        if (strlen($data['password']) < 10) {
-            $this->json(['error' => 'Password must be at least 10 characters long.'], 422);
-            return;
-        }
-        if (!preg_match('/[A-Z]/', $data['password']) || 
-            !preg_match('/[a-z]/', $data['password']) || 
-            !preg_match('/[0-9]/', $data['password'])) {
+        if (!preg_match('/[A-Z]/', $data['new_password']) ||
+            !preg_match('/[a-z]/', $data['new_password']) ||
+            !preg_match('/[0-9]/', $data['new_password'])) {
             $this->json(['error' => 'Password must contain uppercase, lowercase, and a number.'], 422);
             return;
         }
 
-        $db = Database::getConnection();
+        $db   = Database::getConnection();
+        $hash = password_hash($data['new_password'], PASSWORD_ARGON2ID);
 
-        // Check for existing user
-        $stmt = $db->prepare('SELECT id FROM users WHERE username = :username OR email = :email');
-        $stmt->execute(['username' => $data['username'], 'email' => $data['email']]);
-        if ($stmt->fetch()) {
-            $this->json(['error' => 'Username or email already exists.'], 409);
-            return;
-        }
+        $stmt = $db->prepare("
+            UPDATE users
+            SET password_hash = :hash, must_change_password = FALSE, updated_at = NOW()
+            WHERE id = :id
+            RETURNING id, username, email, full_name, role, must_change_password
+        ");
+        $stmt->execute(['hash' => $hash, 'id' => $authUser['id']]);
+        $updated = $stmt->fetch();
 
-        // Create user
-        $passwordHash = password_hash($data['password'], PASSWORD_ARGON2ID);
-        $role = $data['role'] ?? 'user';
+        $this->json(['message' => 'Password updated. Welcome!', 'user' => $updated]);
+    }
 
-        // Only admin can create admin users
-        $authUser = $this->getAuthUser();
-        if ($role === 'admin' && (!$authUser || $authUser['role'] !== 'admin')) {
-            $role = 'user';
-        }
-
-        $stmt = $db->prepare('
-            INSERT INTO users (username, email, password_hash, full_name, role) 
-            VALUES (:username, :email, :password_hash, :full_name, :role) 
-            RETURNING id, username, email, full_name, role, created_at
-        ');
-        $stmt->execute([
-            'username' => $this->sanitize($data['username']),
-            'email' => $data['email'],
-            'password_hash' => $passwordHash,
-            'full_name' => $this->sanitize($data['full_name']),
-            'role' => $role,
-        ]);
-
-        $newUser = $stmt->fetch();
-
+    /**
+     * POST /api/auth/register  — DISABLED
+     * Self-registration is replaced by the access-request flow.
+     */
+    public function register(array $params): void
+    {
         $this->json([
-            'message' => 'Registration successful',
-            'user' => $newUser,
-        ], 201);
+            'error' => 'Self-registration is disabled. Please use the \'Request Access\' form on the login page.'
+        ], 403);
     }
 
     /**

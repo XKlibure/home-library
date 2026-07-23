@@ -19,6 +19,15 @@ class ScanController extends BaseController
     {
         $data = $this->getRequestBody();
 
+        // Rate limiting: 20 scans per hour per user to protect the Gemini API key
+        $authUser = $this->getAuthUser();
+        $rateLimiter = new \App\Middleware\RateLimiter();
+        $rateLimitKey = 'scan:' . ($authUser['id'] ?? ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        if (!$rateLimiter->attempt($rateLimitKey, 20, 3600)) {
+            $this->json(['error' => 'Scan limit reached. Please try again later.'], 429);
+            return;
+        }
+
         if (empty($data['image'])) {
             $this->json(['error' => 'No image provided.'], 422);
             return;
@@ -58,6 +67,15 @@ class ScanController extends BaseController
     public function scanBack(array $params): void
     {
         $data = $this->getRequestBody();
+
+        // Rate limiting: shared 20-per-hour limit per user across all scan endpoints
+        $authUser = $this->getAuthUser();
+        $rateLimiter = new \App\Middleware\RateLimiter();
+        $rateLimitKey = 'scan:' . ($authUser['id'] ?? ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        if (!$rateLimiter->attempt($rateLimitKey, 20, 3600)) {
+            $this->json(['error' => 'Scan limit reached. Please try again later.'], 429);
+            return;
+        }
 
         if (empty($data['image'])) {
             $this->json(['error' => 'No image provided.'], 422);

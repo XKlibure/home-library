@@ -48,6 +48,16 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      # SMTP / Email
+      MAIL_DRIVER: ${MAIL_DRIVER:-smtp}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Bookoholik}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     ports:
       - "${BACKEND_PORT:-8080}:80"
     volumes:
@@ -71,6 +81,9 @@ services:
       dockerfile: docker/Dockerfile.frontend
       args:
         VITE_API_URL: ${API_URL:-http://localhost:8080/api}
+        # NGINX_API_URL: origin only (no /api path) used in the CSP connect-src header.
+        # Derived from API_URL by stripping /api suffix in .env, or set explicitly.
+        NGINX_API_URL: ${NGINX_API_URL:-http://localhost:8080}
     container_name: bookoholik_frontend
     restart: unless-stopped
     ports:

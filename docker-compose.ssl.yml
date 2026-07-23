@@ -1,0 +1,135 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.ssl.yml  —  Bookoholik HTTPS / TLS overlay
+#
+# This file EXTENDS docker-compose.yml and adds a TLS termination layer.
+# It is NOT a standalone compose file — always use it together with the base:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ssl.yml up -d --build
+#
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# THREE SSL MODES — pick ONE in your .env:
+#
+#   SSL_MODE=nginx-selfsigned   (default)
+#     • Self-signed certificate or mkcert certificate
+#     • Requires ./certs/server.crt and ./certs/server.key
+#     • Generate with:  ./docker/ssl-gen.sh <your-LAN-IP>
+#     • Or with mkcert: mkcert -key-file ./certs/server.key \
+#                               -cert-file ./certs/server.crt \
+#                               <IP> localhost 127.0.0.1
+#
+#   SSL_MODE=nginx-letsencrypt
+#     • Bring-your-own Let's Encrypt certificate (certbot / manual)
+#     • Mount your cert files by setting LETSENCRYPT_CERT_DIR in .env
+#       (defaults to /etc/letsencrypt/live/${SSL_DOMAIN})
+#
+#   SSL_MODE=caddy
+#     • Caddy reverse proxy with automatic Let's Encrypt certificate
+#     • Requires a real public domain pointing to this server
+#     • Ports 80 + 443 must be reachable from the internet
+#     • Set SSL_DOMAIN=bookoholik.yourdomain.com in .env
+#
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# QUICK START (self-signed, home LAN):
+#
+#   1.  cp .env.ssl.example .env.ssl          # copy SSL env template
+#       # edit .env.ssl — set SSL_DOMAIN to your LAN IP or hostname
+#
+#   2.  ./docker/ssl-gen.sh 192.168.1.12      # generate self-signed cert
+#
+#   3.  # Update base .env:
+#       #   CORS_ORIGIN=https://192.168.1.12
+#       #   API_URL=https://192.168.1.12/api
+#       #   APP_URL=https://192.168.1.12
+#       #   NGINX_API_URL=https://192.168.1.12
+#
+#   4.  docker compose \
+#         -f docker-compose.yml \
+#         -f docker-compose.ssl.yml \
+#         up -d --build
+#
+#   5.  Open https://192.168.1.12 in your browser.
+#       (Accept the self-signed cert warning, or trust it — see wiki/HTTPS-Setup.md)
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Load SSL-specific env vars (SSL_MODE, SSL_DOMAIN, LETSENCRYPT_CERT_DIR, etc.)
+# These are declared in .env.ssl.example / .env.ssl
+# The base .env is still loaded by docker compose automatically.
+
+services:
+
+  # ── nginx SSL proxy (SSL_MODE=nginx-selfsigned or nginx-letsencrypt) ───────
+  ssl-proxy:
+    image: nginx:alpine
+    container_name: bookoholik_ssl_proxy
+    restart: unless-stopped
+    profiles:
+      - nginx-ssl           # activated when SSL_MODE starts with "nginx-"
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SSL_DOMAIN: ${SSL_DOMAIN:-localhost}
+    volumes:
+      # nginx config template — envsubst fills in ${SSL_DOMAIN} at startup
+      - ./docker/nginx-ssl.conf:/etc/nginx/templates/default.conf.template:ro
+      # Self-signed / mkcert cert (SSL_MODE=nginx-selfsigned)
+      - ${SSL_CERT_FILE:-./certs/server.crt}:/etc/ssl/certs/bookoholik.crt:ro
+      - ${SSL_KEY_FILE:-./certs/server.key}:/etc/ssl/private/bookoholik.key:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - library_network
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+
+  # ── Caddy (SSL_MODE=caddy — automatic Let's Encrypt) ───────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: bookoholik_caddy
+    restart: unless-stopped
+    profiles:
+      - caddy               # activated when SSL_MODE=caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"       # HTTP/3 (QUIC)
+    environment:
+      SSL_DOMAIN: ${SSL_DOMAIN:?SSL_DOMAIN is required for caddy mode}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - library_network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+
+  # ── When SSL proxy is active, the direct ports of frontend/backend are ──────
+  # ── no longer needed (traffic goes through the proxy). Override them here. ──
+
+  frontend:
+    # Remove direct port exposure — all traffic comes through the SSL proxy
+    ports: !reset []
+
+  backend:
+    # Remove direct port exposure — all traffic comes through the SSL proxy
+    ports: !reset []
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

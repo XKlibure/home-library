@@ -1,0 +1,58 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Caddyfile  —  Let's Encrypt automatic HTTPS (Option C)
+#
+# Used by docker-compose.ssl.yml when SSL_MODE=caddy.
+# Replace "bookoholik.yourdomain.com" with your real domain, or set the
+# SSL_DOMAIN variable in .env (docker-compose.ssl.yml reads it automatically).
+#
+# Caddy obtains and renews certificates from Let's Encrypt automatically.
+# Ports 80 and 443 must be reachable from the internet.
+# ─────────────────────────────────────────────────────────────────────────────
+
+{env.SSL_DOMAIN} {
+
+    # ── Backend API (/api/* → backend container) ─────────────────────────────
+    handle /api/* {
+        reverse_proxy backend:80 {
+            # Pass real client info to PHP
+            header_up X-Real-IP         {remote_host}
+            header_up X-Forwarded-For   {remote_host}
+            header_up X-Forwarded-Proto https
+        }
+        # Allow large ebook uploads (100 MB + headroom)
+        request_body {
+            max_size 110MB
+        }
+    }
+
+    # ── Frontend SPA (everything else → frontend container) ──────────────────
+    reverse_proxy frontend:80 {
+        header_up X-Real-IP         {remote_host}
+        header_up X-Forwarded-For   {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    # ── Security headers ─────────────────────────────────────────────────────
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Permissions-Policy        "geolocation=()"
+        X-Permitted-Cross-Domain-Policies "none"
+        # Remove server identification
+        -Server
+    }
+
+    # ── TLS hardening ────────────────────────────────────────────────────────
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    # ── Logging ──────────────────────────────────────────────────────────────
+    log {
+        output stderr
+        format console
+        level  WARN
+    }
+}

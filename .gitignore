@@ -1,7 +1,11 @@
 node_modules/
 vendor/
 .env
+.env.ssl
 dist/
 storage/backups/*.sql.gz
 *.log
 .DS_Store
+
+# TLS certificates — never commit private keys
+certs/

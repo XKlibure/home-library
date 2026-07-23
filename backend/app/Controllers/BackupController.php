@@ -16,7 +16,7 @@ class BackupController extends BaseController
     {
         $this->backupDir = __DIR__ . '/../../storage/backups';
         if (!is_dir($this->backupDir)) {
-            mkdir($this->backupDir, 0755, true);
+            mkdir($this->backupDir, 0750, true); // no world-read on backup directory
         }
     }
 
@@ -36,12 +36,18 @@ class BackupController extends BaseController
         $filename = "manual_backup_{$timestamp}.sql";
         $filepath = "{$this->backupDir}/{$filename}";
 
-        // Set password in environment for pg_dump
-        putenv("PGPASSWORD=" . $password);
+        // Write .pgpass to a temp file so the password never appears in the process
+        // environment (visible via /proc/environ) or in the command line.
+        $pgpassFile = tempnam(sys_get_temp_dir(), 'pgpass_');
+        file_put_contents($pgpassFile, sprintf("%s:%s:%s:%s:%s\n",
+            $host, $port, $dbname, $username, $password
+        ));
+        chmod($pgpassFile, 0600);
 
         // Use escapeshellarg to prevent command injection
         $command = sprintf(
-            'pg_dump -h %s -p %s -U %s %s > %s 2>&1',
+            'PGPASSFILE=%s pg_dump -h %s -p %s -U %s %s > %s 2>/dev/null',
+            escapeshellarg($pgpassFile),
             escapeshellarg($host),
             escapeshellarg($port),
             escapeshellarg($username),
@@ -50,11 +56,12 @@ class BackupController extends BaseController
         );
         exec($command, $output, $returnCode);
 
-        // Clear password from environment
-        putenv('PGPASSWORD');
+        // Always remove the pgpass file
+        @unlink($pgpassFile);
 
         if ($returnCode !== 0) {
-            $this->json(['error' => 'Backup failed.', 'details' => implode("\n", $output)], 500);
+            // Do not leak pg_dump output (may contain connection details)
+            $this->json(['error' => 'Backup failed. Check server logs for details.'], 500);
             return;
         }
 

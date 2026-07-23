@@ -7,6 +7,8 @@
  */
 
 use App\Controllers\AuthController;
+use App\Controllers\PasswordResetController;
+use App\Controllers\AccessRequestController;
 use App\Controllers\EbooksController;
 use App\Controllers\EbookPluginController;
 use App\Controllers\BooksController;
@@ -26,15 +28,24 @@ use App\Middleware\UserMiddleware;
 // ===== Public Routes =====
 
 // Authentication
-$router->post('/api/auth/login', [AuthController::class, 'login']);
-$router->post('/api/auth/register', [AuthController::class, 'register']);
+$router->post('/api/auth/login',    [AuthController::class, 'login']);
+$router->post('/api/auth/register', [AuthController::class, 'register']); // returns 403 — kept for clarity
+
+// Password reset (public, no auth required)
+$router->post('/api/auth/forgot-password',          [PasswordResetController::class, 'forgotPassword']);
+$router->get('/api/auth/reset-password/validate',   [PasswordResetController::class, 'validateToken']);
+$router->post('/api/auth/reset-password',           [PasswordResetController::class, 'resetPassword']);
+
+// Access request (public — non-members ask to join)
+$router->post('/api/auth/request-access', [AccessRequestController::class, 'store']);
 
 // ===== Protected Routes (require authentication) =====
 
 // Auth - user profile
-$router->get('/api/auth/me', [AuthController::class, 'me'], [AuthMiddleware::class]);
-$router->put('/api/auth/profile', [AuthController::class, 'updateProfile'], [AuthMiddleware::class]);
-$router->put('/api/auth/password', [AuthController::class, 'changePassword'], [AuthMiddleware::class]);
+$router->get('/api/auth/me',                       [AuthController::class, 'me'],                    [AuthMiddleware::class]);
+$router->put('/api/auth/profile',                  [AuthController::class, 'updateProfile'],          [AuthMiddleware::class]);
+$router->put('/api/auth/password',                 [AuthController::class, 'changePassword'],         [AuthMiddleware::class]);
+$router->post('/api/auth/change-initial-password', [AuthController::class, 'changeInitialPassword'], [AuthMiddleware::class]);
 
 // Books CRUD
 $router->get('/api/books', [BooksController::class, 'index'], [AuthMiddleware::class]);
@@ -105,12 +116,13 @@ $router->get('/api/reports/export/pdf', [ReportsController::class, 'exportPdf'],
 
 // ===== E-Book Plugin Routes =====
 
-// Plugin status (any authenticated user)
-$router->get('/api/ebook-plugin/status', [EbookPluginController::class, 'status'], [AuthMiddleware::class]);
-
-// Plugin enable/disable (admin only)
-$router->post('/api/ebook-plugin/enable',  [EbookPluginController::class, 'enable'],  [AdminMiddleware::class]);
-$router->post('/api/ebook-plugin/disable', [EbookPluginController::class, 'disable'], [AdminMiddleware::class]);
+$router->get('/api/ebook-plugin/status',                 [EbookPluginController::class, 'status'],         [AuthMiddleware::class]);
+$router->get('/api/ebook-plugin/global-status',          [EbookPluginController::class, 'globalStatus'],   [AdminMiddleware::class]);
+$router->get('/api/ebook-plugin/users',                  [EbookPluginController::class, 'userOverrides'],  [AdminMiddleware::class]);
+$router->post('/api/ebook-plugin/enable',                [EbookPluginController::class, 'enable'],         [AdminMiddleware::class]);
+$router->post('/api/ebook-plugin/disable',               [EbookPluginController::class, 'disable'],        [AdminMiddleware::class]);
+$router->post('/api/ebook-plugin/user/{userId}/enable',  [EbookPluginController::class, 'enableForUser'],  [AdminMiddleware::class]);
+$router->post('/api/ebook-plugin/user/{userId}/disable', [EbookPluginController::class, 'disableForUser'], [AdminMiddleware::class]);
 
 // E-Books CRUD
 $router->get('/api/ebooks',                      [EbooksController::class, 'index'],         [AuthMiddleware::class]);
@@ -128,10 +140,19 @@ $router->post('/api/ebooks/{id}/refresh-cover',  [EbooksController::class, 'refr
 // ===== Admin Routes =====
 
 // User management
-$router->get('/api/users', [UsersController::class, 'index'], [AdminMiddleware::class]);
-$router->get('/api/users/{id}', [UsersController::class, 'show'], [AdminMiddleware::class]);
-$router->put('/api/users/{id}', [UsersController::class, 'update'], [AdminMiddleware::class]);
-$router->delete('/api/users/{id}', [UsersController::class, 'destroy'], [AdminMiddleware::class]);
+// Note: specific routes MUST come before /{id} wildcard routes
+$router->get('/api/users',                               [UsersController::class, 'index'],   [AdminMiddleware::class]);
+$router->post('/api/users',                              [UsersController::class, 'store'],   [AdminMiddleware::class]);
+
+// Access requests (registered BEFORE /users/{id} to avoid wildcard match)
+$router->get('/api/users/access-requests',               [AccessRequestController::class, 'index'],   [AdminMiddleware::class]);
+$router->post('/api/users/access-requests/{id}/approve', [AccessRequestController::class, 'approve'], [AdminMiddleware::class]);
+$router->delete('/api/users/access-requests/{id}',       [AccessRequestController::class, 'reject'],  [AdminMiddleware::class]);
+
+// Generic user CRUD (wildcard — must come after all specific /users/* routes)
+$router->get('/api/users/{id}',                          [UsersController::class, 'show'],    [AdminMiddleware::class]);
+$router->put('/api/users/{id}',                          [UsersController::class, 'update'],  [AdminMiddleware::class]);
+$router->delete('/api/users/{id}',                       [UsersController::class, 'destroy'], [AdminMiddleware::class]);
 
 // Backup management
 $router->post('/api/backup/create', [BackupController::class, 'create'], [AdminMiddleware::class]);

@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Config\Database;
+use App\Services\MailService;
 
 /**
  * Users Controller
@@ -15,14 +16,86 @@ class UsersController extends BaseController
      */
     public function index(array $params): void
     {
-        $db = Database::getConnection();
+        $db   = Database::getConnection();
         $stmt = $db->query('
-            SELECT id, username, email, full_name, role, is_active, created_at, updated_at
-            FROM users 
+            SELECT id, username, email, full_name, role, is_active,
+                   must_change_password, created_at, updated_at
+            FROM users
             ORDER BY created_at DESC
         ');
-
         $this->json(['data' => $stmt->fetchAll()]);
+    }
+
+    /**
+     * POST /api/users   (Admin creates a user and optionally emails credentials)
+     */
+    public function store(array $params): void
+    {
+        $data = $this->getRequestBody();
+
+        $errors = $this->validateRequired($data, ['full_name', 'username', 'email']);
+        if ($errors) { $this->json(['errors' => $errors], 422); return; }
+
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            $this->json(['error' => 'Invalid email format.'], 422);
+            return;
+        }
+
+        $db = Database::getConnection();
+
+        // Check uniqueness
+        $stmt = $db->prepare('SELECT id FROM users WHERE username = :u OR email = :e');
+        $stmt->execute(['u' => $data['username'], 'e' => $data['email']]);
+        if ($stmt->fetch()) {
+            $this->json(['error' => 'Username or email already exists.'], 409);
+            return;
+        }
+
+        $role = in_array($data['role'] ?? 'user', ['admin', 'user', 'viewer'], true)
+                ? ($data['role'] ?? 'user') : 'user';
+
+        // Use provided password OR generate a temporary one
+        $providedPassword = $data['password'] ?? '';
+        $tempPassword     = $providedPassword ?: $this->generateTempPassword();
+        $hash             = password_hash($tempPassword, PASSWORD_ARGON2ID);
+        $mustChange       = empty($providedPassword); // force change if auto-generated
+
+        $stmt = $db->prepare("
+            INSERT INTO users (username, email, password_hash, full_name, role, must_change_password)
+            VALUES (:username, :email, :hash, :full_name, :role, :must_change)
+            RETURNING id, username, email, full_name, role, is_active, must_change_password, created_at
+        ");
+        $stmt->execute([
+            'username'    => $this->sanitize($data['username']),
+            'email'       => $data['email'],
+            'hash'        => $hash,
+            'full_name'   => $this->sanitize($data['full_name']),
+            'role'        => $role,
+            'must_change' => $mustChange ? 't' : 'f',
+        ]);
+        $newUser = $stmt->fetch();
+
+        // Send credentials by email if requested or if password was auto-generated
+        $sendEmail = filter_var($data['send_email'] ?? $mustChange, FILTER_VALIDATE_BOOLEAN);
+        if ($sendEmail) {
+            try {
+                MailService::sendCredentials(
+                    $data['email'],
+                    $this->sanitize($data['full_name']),
+                    $this->sanitize($data['username']),
+                    $tempPassword
+                );
+            } catch (\Exception $e) {
+                error_log('Credentials email error: ' . $e->getMessage());
+            }
+        }
+
+        $this->json([
+            'message'       => 'User created successfully.',
+            'data'          => $newUser,
+            'temp_password' => $mustChange ? $tempPassword : null,
+            'email_sent'    => $sendEmail,
+        ], 201);
     }
 
     /**
@@ -133,5 +206,28 @@ class UsersController extends BaseController
         }
 
         $this->json(['message' => 'User deleted successfully.']);
+    }
+
+    // ── Helper ─────────────────────────────────────────────────
+    private function generateTempPassword(): string
+    {
+        // Cryptographically secure random password: 3 upper + 5 lower + 4 digits (12 chars)
+        $upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $lower  = 'abcdefghjkmnpqrstuvwxyz';
+        $digits = '23456789';
+
+        $password = '';
+        // Pick characters using random_int (CSPRNG-backed) instead of str_shuffle
+        for ($i = 0; $i < 3; $i++) { $password .= $upper[random_int(0, strlen($upper) - 1)]; }
+        for ($i = 0; $i < 5; $i++) { $password .= $lower[random_int(0, strlen($lower) - 1)]; }
+        for ($i = 0; $i < 4; $i++) { $password .= $digits[random_int(0, strlen($digits) - 1)]; }
+
+        // Fisher-Yates shuffle using random_int
+        $chars = str_split($password);
+        for ($i = count($chars) - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            [$chars[$i], $chars[$j]] = [$chars[$j], $chars[$i]];
+        }
+        return implode('', $chars);
     }
 }

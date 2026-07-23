@@ -80,7 +80,7 @@
         <div>
           <p class="text-sm font-medium text-gray-900">{{ t('settings.ebook_plugin_label') }}</p>
           <p class="text-xs text-gray-500 mt-0.5">
-            {{ ebookPlugin.enabled ? t('settings.ebook_plugin_active') : t('settings.ebook_plugin_inactive') }}
+            {{ globalEnabled ? t('settings.ebook_plugin_active') : t('settings.ebook_plugin_inactive') }}
           </p>
         </div>
         <button
@@ -88,13 +88,13 @@
           :disabled="togglingPlugin"
           :class="[
             'relative inline-flex h-7 w-13 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50',
-            ebookPlugin.enabled ? 'bg-indigo-600' : 'bg-gray-300'
+            globalEnabled ? 'bg-indigo-600' : 'bg-gray-300'
           ]"
         >
           <span
             :class="[
               'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
-              ebookPlugin.enabled ? 'translate-x-7' : 'translate-x-1'
+              globalEnabled ? 'translate-x-7' : 'translate-x-1'
             ]"
           ></span>
         </button>
@@ -152,18 +152,31 @@ const passwordLoading = ref(false)
 const passwordMsg = ref('')
 const passwordSuccess = ref(false)
 
-const ebookPlugin = useEbookPlugin()
+const ebookPlugin     = useEbookPlugin()
+const globalEnabled   = ref(false)
+const togglingPlugin  = ref(false)
 
-const togglingPlugin = ref(false)
+// Load the GLOBAL status (not per-user) so the Settings toggle always
+// reflects the real global switch, regardless of per-user overrides.
+async function loadGlobalPluginStatus() {
+  try {
+    const res    = await api.get('/ebook-plugin/global-status')
+    globalEnabled.value = res.data.enabled
+  } catch {
+    globalEnabled.value = ebookPlugin.enabled // fallback
+  }
+}
 
 async function toggleEbookPlugin() {
   togglingPlugin.value = true
   try {
-    if (ebookPlugin.enabled) {
+    if (globalEnabled.value) {
       await ebookPlugin.disable()
+      globalEnabled.value = false
       toastStore.success(t('settings.ebook_plugin_disabled'))
     } else {
       await ebookPlugin.enable()
+      globalEnabled.value = true
       toastStore.success(t('settings.ebook_plugin_enabled'))
     }
   } catch {
@@ -248,7 +261,10 @@ async function changePassword() {
   }
 }
 
-onMounted(loadProfile)
+onMounted(() => {
+  loadProfile()
+  if (user.value?.role === 'admin') loadGlobalPluginStatus()
+})
 </script>
 
 <style scoped>

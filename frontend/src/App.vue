@@ -57,6 +57,12 @@
     <router-view />
   </div>
 
+  <!-- Force password change (blocks everything until done) -->
+  <ForcePasswordChangeModal
+    v-if="isAuthenticated && mustChangePassword"
+    @done="onPasswordChanged"
+  />
+
   <!-- Toast notifications -->
   <div class="fixed top-4 ltr:right-4 rtl:left-4 z-[60] space-y-2 pointer-events-none">
     <transition-group name="toast">
@@ -80,7 +86,8 @@ import { useAuthStore }   from './store/auth'
 import { useToastStore }  from './store/toast'
 import { useEbookPlugin } from './store/ebookPlugin'
 import { setLocale }      from './i18n'
-import SidebarContent     from './components/SidebarContent.vue'
+import SidebarContent           from './components/SidebarContent.vue'
+import ForcePasswordChangeModal from './components/ForcePasswordChangeModal.vue'
 
 const { t }       = useI18n()
 const router      = useRouter()
@@ -96,6 +103,15 @@ const user            = computed(() => authStore.user)
 const isAdmin         = computed(() => authStore.user?.role === 'admin')
 const ebooksEnabled   = computed(() => ebookPlugin.enabled)
 const toasts          = computed(() => toastStore.toasts)
+
+const mustChangePassword = computed(() => !!authStore.user?.must_change_password)
+
+function onPasswordChanged() {
+  if (authStore.user) {
+    authStore.user = { ...authStore.user, must_change_password: false }
+    localStorage.setItem('auth_user', JSON.stringify(authStore.user))
+  }
+}
 
 router.afterEach(() => { sidebarOpen.value = false })
 

@@ -705,15 +705,11 @@ class EbooksController extends BaseController
      */
     private function requirePluginEnabled(): void
     {
-        $db   = Database::getConnection();
-        $stmt = $db->prepare("
-            SELECT setting_value FROM plugin_settings
-            WHERE plugin_name = 'ebooks' AND setting_key = 'enabled'
-        ");
-        $stmt->execute();
-        $row = $stmt->fetch();
+        $authUser = $this->getAuthUser();
+        $userId   = $authUser['id'] ?? null;
 
-        if (!$row || $row['setting_value'] !== 'true') {
+        $controller = new \App\Controllers\EbookPluginController();
+        if (!$controller->isEnabledFor($userId)) {
             $this->json(['error' => 'The E-book plugin is not enabled.'], 403);
             exit;
         }

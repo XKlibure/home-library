@@ -11,21 +11,18 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(credentials) {
     const response = await api.post('/auth/login', credentials)
     token.value = response.data.token
-    user.value = response.data.user
-    localStorage.setItem('auth_token', response.data.token)
-    localStorage.setItem('auth_user', JSON.stringify(response.data.user))
-    return response.data
+    user.value  = response.data.user
+    localStorage.setItem('auth_token',  response.data.token)
+    localStorage.setItem('auth_user',   JSON.stringify(response.data.user))
+    return response.data  // includes must_change_password
   }
 
-  async function register(data) {
-    const response = await api.post('/auth/register', data)
-    return response.data
-  }
-
-  async function fetchProfile() {
-    const response = await api.get('/auth/me')
-    user.value = response.data.user
-    localStorage.setItem('auth_user', JSON.stringify(response.data.user))
+  async function refreshUser() {
+    try {
+      const response = await api.get('/auth/me')
+      user.value = response.data.user
+      localStorage.setItem('auth_user', JSON.stringify(response.data.user))
+    } catch { /* silent */ }
   }
 
   function logout() {
@@ -35,5 +32,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('auth_user')
   }
 
-  return { token, user, isAuthenticated, login, register, fetchProfile, logout }
+  return { token, user, isAuthenticated, login, refreshUser, logout }
 })
